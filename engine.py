@@ -9,7 +9,7 @@ from coco_eval import CocoEvaluator
 from coco_utils import get_coco_api_from_dataset
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, tb_writer=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
@@ -23,15 +23,17 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
         lr_scheduler = torch.optim.lr_scheduler.LinearLR(
             optimizer, start_factor=warmup_factor, total_iters=warmup_iters
         )
-
+    epoch_step = 0
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
+        global_step = epoch * len(data_loader) + epoch_step
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         loss_dict = model(images, targets)
-
         losses = sum(loss for loss in loss_dict.values())
-
+        for key, value in loss_dict.items():
+            tb_writer.add_scalar(f"Losses/{key}", value, global_step)    
+        tb_writer.add_scalar("Losses/total_loss", losses, global_step)
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = utils.reduce_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
@@ -52,7 +54,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
 
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-
+        epoch_step += 1
     return metric_logger
 
 
