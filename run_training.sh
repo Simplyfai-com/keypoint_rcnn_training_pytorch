@@ -3,6 +3,7 @@ DATA_PATH="/media/leiverandres/LeiverSSD/box_band_data/datasets/treadmill_pytorc
 python3 custom_train.py \
     --data-path $DATA_PATH \
     --epochs 2 \
+    --test-only \
     --output-dir "./test_26_mar_2022" \
 
 # python3 train.py \
