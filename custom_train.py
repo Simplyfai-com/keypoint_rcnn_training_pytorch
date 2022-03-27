@@ -224,7 +224,8 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         writer.add_scalar("Epoch", epoch, epoch)
         train_one_epoch(model, optimizer, data_loader_train, device, epoch, print_freq=1000, tb_writer=writer)
-        #lr_scheduler.step()
+        lr_scheduler.step()
+        writer.add_scalar("Learning rate", lr_scheduler.get_last_lr()[0], epoch)
         if args.output_dir:
             checkpoint = {
                 "model": model.state_dict(),
