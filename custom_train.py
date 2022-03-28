@@ -1,4 +1,5 @@
 import argparse
+import glob
 import json
 import os
 import pathlib
@@ -40,7 +41,7 @@ def get_args():
     parser.add_argument("--lr", default=0.001, type=float, help="Initial learning rate")
     parser.add_argument("--output-dir", default=".", type=str, help="Path to save outputs")
     parser.add_argument("--resume-from", default="", type=str, help="Path of checkpoint")
-    parser.add_argument("--start_epoch", default=0, type=int, help="Start epoch")
+    parser.add_argument("--start-epoch", default=0, type=int, help="Start epoch")
     parser.add_argument("--test-only", dest="test_only", action="store_true", help="Only test the model")
     return parser.parse_args()
 
@@ -215,17 +216,19 @@ def main(args):
         optimizer.load_state_dict(checkpoint["optimizer"])
         lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
         args.start_epoch = checkpoint["epoch"] + 1
+        print(f"Resuming from epoch {args.start_epoch}")
 
     if args.test_only:
         evaluate(model, data_loader_test, device)
         return
-
     print("Training...")
     for epoch in range(args.start_epoch, args.epochs):
         writer.add_scalar("Epoch", epoch, epoch)
         train_one_epoch(model, optimizer, data_loader_train, device, epoch, print_freq=1000, tb_writer=writer)
-        lr_scheduler.step()
-        writer.add_scalar("Learning rate", lr_scheduler.get_last_lr()[0], epoch)
+        # lr_scheduler.step()
+        # writer.add_scalar("Learning rate", lr_scheduler.get_last_lr()[0], epoch)
+        optimizer.step()
+        writer.add_scalar("Learning rate", optimizer.param_groups[0]['lr'], epoch)
         if args.output_dir:
             checkpoint = {
                 "model": model.state_dict(),
@@ -234,6 +237,13 @@ def main(args):
                 "args": args,
                 "epoch": epoch
             }
+            # only keep 3 checkpoints at a time
+            checkpoint_files = sorted(glob.glob(args.output_dir + "/*.pth"))
+            if len(checkpoint_files) > 2:
+                for old_checkpoint in checkpoint_files[:-2]:
+                    os.remove(old_checkpoint)
+            if epoch < 10: # just put a trailing zero to epoch number, so the sorting works
+                utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_0{epoch}.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth"))
             utils.save_on_master(checkpoint, os.path.join(args.output_dir, "last_checkpoint.pth"))
         evaluate(model, data_loader_test, device)
