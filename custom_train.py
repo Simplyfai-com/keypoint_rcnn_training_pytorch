@@ -197,7 +197,7 @@ def main(args):
     dataset_test = ClassDataset(KEYPOINTS_FOLDER_TEST, transform=None, demo=False)
     print(f"Train: {len(dataset_train)} \nTest: {len(dataset_test)}")
     print("Creating data loaders...")
-    data_loader_train = DataLoader(dataset_train, batch_size=3, shuffle=True, collate_fn=collate_fn)
+    data_loader_train = DataLoader(dataset_train, batch_size=12, shuffle=True, collate_fn=collate_fn)
     data_loader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, collate_fn=collate_fn)
 
     print("Creating model...")
