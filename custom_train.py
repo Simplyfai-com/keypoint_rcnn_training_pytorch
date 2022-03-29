@@ -16,7 +16,6 @@ from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.transforms import functional as F
 
 import engine
-import train
 import transforms
 import utils
 from engine import evaluate, train_one_epoch
@@ -140,7 +139,7 @@ class ClassDataset(Dataset):
     def __len__(self):
         return len(self.imgs_files)
 
-def visualize(image, bboxes, keypoints, image_original=None, bboxes_original=None, keypoints_original=None):
+def visualize(image, bboxes, keypoints, image_original=None, bboxes_original=None, keypoints_original=None, output_name=None):
     fontsize = 18
 
     for bbox in bboxes:
@@ -152,11 +151,11 @@ def visualize(image, bboxes, keypoints, image_original=None, bboxes_original=Non
         for idx, kp in enumerate(kps):
             image = cv2.circle(image.copy(), tuple(kp), 5, (255,0,0), 10)
             image = cv2.putText(image.copy(), " " + keypoints_classes_ids2names[idx], tuple(kp), cv2.FONT_HERSHEY_SIMPLEX, 2, (255,0,0), 3, cv2.LINE_AA)
-
+    cv2.imwrite(output_name, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
     if image_original is None and keypoints_original is None:
         plt.figure(figsize=(40,40))
         plt.imshow(image)
-
+        
     else:
         for bbox in bboxes_original:
             start_point = (bbox[0], bbox[1])
@@ -249,8 +248,6 @@ def main(args):
         evaluate(model, data_loader_test, device)
     writer.close()
     return
-    # # Save model weights after training
-    # torch.save(model.state_dict(), 'custom_keypointsrcnn_weights.pth')
     iterator = iter(data_loader_test)
     images, targets = next(iterator)
     images = list(image.to(device) for image in images)

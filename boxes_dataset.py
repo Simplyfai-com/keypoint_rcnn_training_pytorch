@@ -1,0 +1,95 @@
+import json
+import os
+
+import cv2
+import numpy as np
+import torch
+import torchvision
+from torch.utils.data import Dataset
+from torchvision.transforms import functional as F
+
+NUM_KEYPOINTS = 8
+
+class ClassDataset(Dataset):
+    def __init__(self, root, transform=None, demo=False):                
+        self.root = root
+        self.transform = transform
+        self.demo = demo # Use demo=True if you need transformed and original images (for example, for visualization purposes)
+        self.imgs_files = sorted(os.listdir(os.path.join(root, "images")))
+        self.annotations_files = sorted(os.listdir(os.path.join(root, "annotations")))
+    
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.root, "images", self.imgs_files[idx])
+        annotations_path = os.path.join(self.root, "annotations", self.annotations_files[idx])
+        
+        img_original = cv2.imread(img_path)
+        img_original = cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB)        
+        
+        with open(annotations_path) as f:
+            data = json.load(f)
+            bboxes_original = data['bboxes']
+            keypoints_original = data['keypoints']
+            # All objects are cardboard boxes
+            bboxes_labels_original = ['Cardboard_box' for _ in bboxes_original]            
+
+        if self.transform:   
+            # Converting keypoints from [x,y,visibility]-format to [x, y]-format + Flattening nested list of keypoints            
+            # For example, if we have the following list of keypoints for three objects (each object has two keypoints):
+            # [[obj1_kp1, obj1_kp2], [obj2_kp1, obj2_kp2], [obj3_kp1, obj3_kp2]], where each keypoint is in [x, y]-format            
+            # Then we need to convert it to the following list:
+            # [obj1_kp1, obj1_kp2, obj2_kp1, obj2_kp2, obj3_kp1, obj3_kp2]
+            keypoints_original_flattened = [el[0:2] for kp in keypoints_original for el in kp]
+            #print(keypoints_original_flattened)
+            # Apply augmentations
+            transformed = self.transform(image=img_original, bboxes=bboxes_original, bboxes_labels=bboxes_labels_original, keypoints=keypoints_original_flattened)
+            img = transformed['image']
+            bboxes = transformed['bboxes']
+            
+            # Unflattening list transformed['keypoints']
+            # For example, if we have the following list of keypoints for three objects (each object has two keypoints):
+            # [obj1_kp1, obj1_kp2, obj2_kp1, obj2_kp2, obj3_kp1, obj3_kp2], where each keypoint is in [x, y]-format
+            # Then we need to convert it to the following list:
+            # [[obj1_kp1, obj1_kp2], [obj2_kp1, obj2_kp2], [obj3_kp1, obj3_kp2]]
+            keypoints_transformed_unflattened = np.reshape(np.array(transformed['keypoints']), (-1,NUM_KEYPOINTS,2)).tolist()
+
+            # Converting transformed keypoints from [x, y]-format to [x,y,visibility]-format by appending original visibilities to transformed coordinates of keypoints
+            keypoints = []
+            for o_idx, obj in enumerate(keypoints_transformed_unflattened): # Iterating over objects
+                obj_keypoints = []
+                for k_idx, kp in enumerate(obj): # Iterating over keypoints in each object
+                    # kp - coordinates of keypoint
+                    # keypoints_original[o_idx][k_idx][2] - original visibility of keypoint
+                    obj_keypoints.append(kp + [keypoints_original[o_idx][k_idx][2]])
+                keypoints.append(obj_keypoints)
+        
+        else:
+            img, bboxes, keypoints = img_original, bboxes_original, keypoints_original        
+        
+        # Convert everything into a torch tensor        
+        bboxes = torch.as_tensor(bboxes, dtype=torch.float32)       
+        target = {}
+        target["boxes"] = bboxes
+        target["labels"] = torch.as_tensor([1 for _ in bboxes], dtype=torch.int64) # all objects are cardboard_box
+        target["image_id"] = torch.tensor([idx])
+        target["area"] = (bboxes[:, 3] - bboxes[:, 1]) * (bboxes[:, 2] - bboxes[:, 0])
+        target["iscrowd"] = torch.zeros(len(bboxes), dtype=torch.int64)
+        target["keypoints"] = torch.as_tensor(keypoints, dtype=torch.float32)        
+        img = F.to_tensor(img)
+        
+        bboxes_original = torch.as_tensor(bboxes_original, dtype=torch.float32)
+        target_original = {}
+        target_original["boxes"] = bboxes_original
+        target_original["labels"] = torch.as_tensor([1 for _ in bboxes_original], dtype=torch.int64) # all objects are glue tubes
+        target_original["image_id"] = torch.tensor([idx])
+        target_original["area"] = (bboxes_original[:, 3] - bboxes_original[:, 1]) * (bboxes_original[:, 2] - bboxes_original[:, 0])
+        target_original["iscrowd"] = torch.zeros(len(bboxes_original), dtype=torch.int64)
+        target_original["keypoints"] = torch.as_tensor(keypoints_original, dtype=torch.float32)        
+        img_original = F.to_tensor(img_original)
+
+        if self.demo:
+            return img, target, img_original, target_original
+        else:
+            return img, target
+    
+    def __len__(self):
+        return len(self.imgs_files)
