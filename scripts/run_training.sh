@@ -1,6 +1,7 @@
+#! /bin/bash
 
-DATA_PATH="/media/leiverandres/LeiverSSD/box_band_data/datasets/treadmill_pytorch_dataset/"
+DATA_PATH="/home/ubuntu/datasets/full_treadmill_torch_dataset/"
 python3 custom_train.py \
     --data-path $DATA_PATH \
     --epochs 100 \
-    --output-dir "./test_26_mar_2022" \
+    --output-dir "./28_mar_2022_fixed_lr" \

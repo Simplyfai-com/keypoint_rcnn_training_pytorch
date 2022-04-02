@@ -7,10 +7,11 @@ import torch
 import torchvision
 from torch.utils.data import Dataset
 from torchvision.transforms import functional as F
+import albumentations as A  # Library for augmentations
 
 NUM_KEYPOINTS = 8
 
-class ClassDataset(Dataset):
+class BoxesDataset(Dataset):
     def __init__(self, root, transform=None, demo=False):                
         self.root = root
         self.transform = transform
@@ -39,7 +40,6 @@ class ClassDataset(Dataset):
             # Then we need to convert it to the following list:
             # [obj1_kp1, obj1_kp2, obj2_kp1, obj2_kp2, obj3_kp1, obj3_kp2]
             keypoints_original_flattened = [el[0:2] for kp in keypoints_original for el in kp]
-            #print(keypoints_original_flattened)
             # Apply augmentations
             transformed = self.transform(image=img_original, bboxes=bboxes_original, bboxes_labels=bboxes_labels_original, keypoints=keypoints_original_flattened)
             img = transformed['image']
@@ -61,32 +61,32 @@ class ClassDataset(Dataset):
                     # keypoints_original[o_idx][k_idx][2] - original visibility of keypoint
                     obj_keypoints.append(kp + [keypoints_original[o_idx][k_idx][2]])
                 keypoints.append(obj_keypoints)
-        
         else:
             img, bboxes, keypoints = img_original, bboxes_original, keypoints_original        
         
         # Convert everything into a torch tensor        
-        bboxes = torch.as_tensor(bboxes, dtype=torch.float32)       
+        bboxes = torch.as_tensor(bboxes, dtype=torch.float32)
         target = {}
         target["boxes"] = bboxes
-        target["labels"] = torch.as_tensor([1 for _ in bboxes], dtype=torch.int64) # all objects are cardboard_box
+        # There is a single class: cardboard_box
+        target["labels"] = torch.as_tensor([1 for _ in bboxes], dtype=torch.int64)
         target["image_id"] = torch.tensor([idx])
         target["area"] = (bboxes[:, 3] - bboxes[:, 1]) * (bboxes[:, 2] - bboxes[:, 0])
         target["iscrowd"] = torch.zeros(len(bboxes), dtype=torch.int64)
-        target["keypoints"] = torch.as_tensor(keypoints, dtype=torch.float32)        
+        target["keypoints"] = torch.as_tensor(keypoints, dtype=torch.float32)
         img = F.to_tensor(img)
         
-        bboxes_original = torch.as_tensor(bboxes_original, dtype=torch.float32)
-        target_original = {}
-        target_original["boxes"] = bboxes_original
-        target_original["labels"] = torch.as_tensor([1 for _ in bboxes_original], dtype=torch.int64) # all objects are glue tubes
-        target_original["image_id"] = torch.tensor([idx])
-        target_original["area"] = (bboxes_original[:, 3] - bboxes_original[:, 1]) * (bboxes_original[:, 2] - bboxes_original[:, 0])
-        target_original["iscrowd"] = torch.zeros(len(bboxes_original), dtype=torch.int64)
-        target_original["keypoints"] = torch.as_tensor(keypoints_original, dtype=torch.float32)        
-        img_original = F.to_tensor(img_original)
-
         if self.demo:
+            bboxes_original = torch.as_tensor(bboxes_original, dtype=torch.float32)
+            target_original = {}
+            target_original["boxes"] = bboxes_original
+            # There is a single class: cardboard_box
+            target_original["labels"] = torch.as_tensor([1 for _ in bboxes_original], dtype=torch.int64)
+            target_original["image_id"] = torch.tensor([idx])
+            target_original["area"] = (bboxes_original[:, 3] - bboxes_original[:, 1]) * (bboxes_original[:, 2] - bboxes_original[:, 0])
+            target_original["iscrowd"] = torch.zeros(len(bboxes_original), dtype=torch.int64)
+            target_original["keypoints"] = torch.as_tensor(keypoints_original, dtype=torch.float32)
+            img_original = F.to_tensor(img_original)
             return img, target, img_original, target_original
         else:
             return img, target

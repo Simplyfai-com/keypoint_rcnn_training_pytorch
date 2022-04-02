@@ -6,7 +6,7 @@ import torchvision
 from torch.utils.data import DataLoader
 import numpy as np
 
-from boxes_dataset import ClassDataset
+from boxes_dataset import BoxesDataset
 from custom_train import get_model, visualize
 from utils import collate_fn
 
@@ -26,8 +26,8 @@ def main(args):
     INFERENCE_OUTPUT_PATH.mkdir(exist_ok=True)
 
     print("Loading dataset... ", end="")
-    dataset_train = ClassDataset(KEYPOINTS_FOLDER_TRAIN, transform=None, demo=False)
-    dataset_test = ClassDataset(KEYPOINTS_FOLDER_TEST, transform=None, demo=False)
+    dataset_train = BoxesDataset(KEYPOINTS_FOLDER_TRAIN, transform=None, demo=False)
+    dataset_test = BoxesDataset(KEYPOINTS_FOLDER_TEST, transform=None, demo=False)
     data_loader_train = DataLoader(dataset_train, batch_size=1, shuffle=False, num_workers=4, collate_fn=collate_fn)
     data_loader_test = DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=4, collate_fn=collate_fn)
     print("Done.")
@@ -66,13 +66,6 @@ def main(args):
             visualize(image, bboxes, keypoints, output_name=f"{INFERENCE_OUTPUT_PATH}/train_{i}.png")
     print("Done.")
                 
-
-
-
-
-    
-
-
 if __name__ == "__main__":
     args = get_args()
     main(args)
