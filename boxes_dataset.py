@@ -24,8 +24,8 @@ class BoxesDataset(Dataset):
         annotations_path = os.path.join(self.root, "annotations", self.annotations_files[idx])
         
         img_original = cv2.imread(img_path)
-        img_original = cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB)        
-        
+        img_original = cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB)
+
         with open(annotations_path) as f:
             data = json.load(f)
             bboxes_original = data['bboxes']

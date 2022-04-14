@@ -5,7 +5,6 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader
 import numpy as np
-
 from boxes_dataset import BoxesDataset
 from custom_train import get_model, visualize
 from utils import collate_fn
@@ -38,7 +37,6 @@ def main(args):
     model.load_state_dict(checkpoint["model"])
     print("Done.")
 
-    print(f"Starting inference and saving results at {INFERENCE_OUTPUT_PATH} ", end="")
     THRESHOLD = 0.5
     with torch.no_grad():
         model.cuda()
@@ -51,7 +49,7 @@ def main(args):
             scores = inference[0]["scores"].detach().cpu().numpy()
             # Indexes of boxes with scores > threshold
             high_scores_idx = np.where(scores > THRESHOLD)[0].tolist()
-             # Indexes of boxes left after applying NMS (iou_threshold=0.3)
+            # Indexes of boxes left after applying NMS (iou_threshold=0.3)
             post_nms_idxs = torchvision.ops.nms(inference[0]["boxes"][high_scores_idx], inference[0]["scores"][high_scores_idx], iou_threshold=0.3).cpu().numpy()
 
             keypoints = []
